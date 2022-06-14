@@ -42,6 +42,8 @@ export class RegisterComponent {
     phoneNumber: this.phoneNumber
   })
 
+  // I am working here after revesing to the older commit 'added Alert Component'
+
   register() {
     console.log('register called')
   }
