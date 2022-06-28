@@ -3,6 +3,8 @@ import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { AngularFireStorage } from '@angular/fire/compat/storage';
 import { v4 as uuid } from 'uuid'
 import { last } from 'rxjs/operators'
+import { AngularFireAuth } from '@angular/fire/compat/auth';
+import firebase from 'firebase/compat/app'
 
 @Component({
   selector: 'app-upload',
@@ -19,6 +21,7 @@ export class UploadComponent implements OnInit {
   inSubmission = false
   percentage = 0
   showPercentage = true
+  user: firebase.User | null = null
 
   title = new FormControl('', {
     validators: [
@@ -31,8 +34,12 @@ export class UploadComponent implements OnInit {
     title: this.title
   })
 
-  constructor(private storage: AngularFireStorage
-  ) { }
+  constructor(
+    private storage: AngularFireStorage,
+    private auth: AngularFireAuth
+  ) {
+    auth.user.subscribe(user => this.user = user)
+   }
 
   ngOnInit(): void {
   }
@@ -72,6 +79,14 @@ export class UploadComponent implements OnInit {
       last()
     ).subscribe({
       next: (snapshot) => {
+        const clip = {
+          uid: this.user?.uid,
+          displayName: this.user?.displayName,
+          title: this.title.value,
+          fileName: `${clipFileName}.mp4`,
+          
+        }
+
         this.alertColor = 'green'
         this.alertMsg = 'Success! Your clip is now ready to share with the world.'
         this.showPercentage = false
