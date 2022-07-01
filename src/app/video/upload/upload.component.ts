@@ -2,9 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { AngularFireStorage } from '@angular/fire/compat/storage';
 import { v4 as uuid } from 'uuid'
-import { last } from 'rxjs/operators'
+import { last, switchMap } from 'rxjs/operators'
 import { AngularFireAuth } from '@angular/fire/compat/auth';
 import firebase from 'firebase/compat/app'
+import { ClipService } from 'src/app/services/clip.service';
 
 @Component({
   selector: 'app-upload',
@@ -36,7 +37,8 @@ export class UploadComponent implements OnInit {
 
   constructor(
     private storage: AngularFireStorage,
-    private auth: AngularFireAuth
+    private auth: AngularFireAuth,
+    private clipsService: ClipService
   ) {
     auth.user.subscribe(user => this.user = user)
    }
@@ -70,22 +72,28 @@ export class UploadComponent implements OnInit {
     const clipPath = `clips/${clipFileName}.mp4`
 
     const task = this.storage.upload(clipPath, this.file)
+    const clipRef = this.storage.ref(clipPath)
 
     task.percentageChanges().subscribe(progress => {
       this.percentage = progress as number / 100
     })
 
     task.snapshotChanges().pipe(
-      last()
+      last(),
+      switchMap(() => clipRef.getDownloadURL())
     ).subscribe({
-      next: (snapshot) => {
+      next: (url) => {
         const clip = {
-          uid: this.user?.uid,
-          displayName: this.user?.displayName,
+          uid: this.user?.uid as string,
+          displayName: this.user?.displayName as string,
           title: this.title.value,
           fileName: `${clipFileName}.mp4`,
-          
+          url
         }
+
+        this.clipsService.createClip(clip)
+
+        console.log(clip)
 
         this.alertColor = 'green'
         this.alertMsg = 'Success! Your clip is now ready to share with the world.'
