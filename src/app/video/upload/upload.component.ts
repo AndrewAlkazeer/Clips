@@ -9,6 +9,7 @@ import { ClipService } from 'src/app/services/clip.service';
 import { isNgTemplate } from '@angular/compiler';
 import { Router } from '@angular/router';
 import { FfmpegService } from 'src/app/services/ffmpeg.service';
+import { combineLatest } from 'rxjs';
 
 @Component({
   selector: 'app-upload',
@@ -28,6 +29,8 @@ export class UploadComponent implements OnDestroy {
   user: firebase.User | null = null
   task?: AngularFireUploadTask
   screenshots: string[] = []
+  selectedScreenshot = ''
+  screenshotTask?: AngularFireUploadTask
 
   title = new FormControl('', {
     validators: [
@@ -72,13 +75,15 @@ export class UploadComponent implements OnDestroy {
 
     this.screenshots = await this.ffmpegService.getScreenshots(this.file)
 
+    this.selectedScreenshot = this.screenshots[0]
+
     this.title.setValue(
       this.file.name.replace(/\.[^/.]+$/, '')
     )
     this.nextStep = true
   }
 
-  uploadFile() {
+  async uploadFile() {
     this.uploadForm.disable()
 
     this.showAlert = true
@@ -90,11 +95,31 @@ export class UploadComponent implements OnDestroy {
     const clipFileName = uuid()
     const clipPath = `clips/${clipFileName}.mp4`
 
+    const screenshotBlob = await this.ffmpegService.blobFromURL(
+      this.selectedScreenshot
+    )
+    const screenshotPath = `screenshots/${clipFileName}.png`
+
     this.task = this.storage.upload(clipPath, this.file)
     const clipRef = this.storage.ref(clipPath)
 
-    this.task.percentageChanges().subscribe(progress => {
-      this.percentage = progress as number / 100
+    this.screenshotTask = this.storage.upload(
+      screenshotPath, screenshotBlob
+    )
+
+    combineLatest([
+      this.task.percentageChanges(),
+      this.screenshotTask.percentageChanges()
+    ]).subscribe((progress) => {
+      const [clipProgress, screenshotProgress] = progress
+
+      if(!clipProgress || !screenshotProgress) {
+        return
+      }
+
+      const total = clipProgress + screenshotProgress
+
+      this.percentage = total as number / 200
     })
 
     this.task.snapshotChanges().pipe(
